@@ -44,16 +44,19 @@ export const formatAppointmentDate = (date, time) => {
 export const sortAppointments = (appointments) =>
   [...appointments].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
 
-export const normalizeSettings = (settings = {}) => ({
-  demoName: typeof settings.demoName === 'string' && settings.demoName.trim() ? settings.demoName.trim() : defaultSettings.demoName,
-  introText:
-    typeof settings.introText === 'string' && settings.introText.trim() ? settings.introText.trim() : defaultSettings.introText,
-  defaultAppointmentLength: Number.isFinite(Number(settings.defaultAppointmentLength)) && Number(settings.defaultAppointmentLength) > 0
-    ? Number(settings.defaultAppointmentLength)
-    : defaultSettings.defaultAppointmentLength,
-  bookingNotesEnabled:
-    typeof settings.bookingNotesEnabled === 'boolean' ? settings.bookingNotesEnabled : defaultSettings.bookingNotesEnabled,
-});
+export const normalizeSettings = (settings = {}) => {
+  const appointmentLength = Number(settings.defaultAppointmentLength);
+  const isValidAppointmentLength = Number.isInteger(appointmentLength) && appointmentLength >= 5 && appointmentLength % 5 === 0;
+
+  return {
+    demoName: typeof settings.demoName === 'string' && settings.demoName.trim() ? settings.demoName.trim() : defaultSettings.demoName,
+    introText:
+      typeof settings.introText === 'string' && settings.introText.trim() ? settings.introText.trim() : defaultSettings.introText,
+    defaultAppointmentLength: isValidAppointmentLength ? appointmentLength : defaultSettings.defaultAppointmentLength,
+    bookingNotesEnabled:
+      typeof settings.bookingNotesEnabled === 'boolean' ? settings.bookingNotesEnabled : defaultSettings.bookingNotesEnabled,
+  };
+};
 
 export const readJsonStorage = (storage, key) => {
   if (!storage?.getItem) {
@@ -162,28 +165,54 @@ export function initializeBookingApp(doc = document, options = {}) {
   const persistSettings = () => writeJsonStorage(storage, STORAGE_KEYS.settings, settings);
 
   const renderAppointments = () => {
+    if (!appointmentsList) {
+      return;
+    }
+
     appointmentsList.replaceChildren(
       ...sortAppointments(appointments).map((appointment) => createAppointmentItemElement(doc, appointment)),
     );
   };
 
   const applySettingsToBookingExperience = () => {
-    demoNameHeading.textContent = settings.demoName;
-    introTextCopy.textContent = settings.introText;
-    bookingLengthSummary.textContent = `${settings.defaultAppointmentLength}-minute default appointment`;
+    if (demoNameHeading) {
+      demoNameHeading.textContent = settings.demoName;
+    }
+    if (introTextCopy) {
+      introTextCopy.textContent = settings.introText;
+    }
+    if (bookingLengthSummary) {
+      bookingLengthSummary.textContent = `${settings.defaultAppointmentLength}-minute default appointment`;
+    }
 
-    bookingNotesField.classList.toggle('hidden', !settings.bookingNotesEnabled);
-    bookingNotesInput.disabled = !settings.bookingNotesEnabled;
-    if (!settings.bookingNotesEnabled) {
-      bookingNotesInput.value = '';
+    if (bookingNotesField) {
+      bookingNotesField.classList.toggle('hidden', !settings.bookingNotesEnabled);
+    }
+    if (bookingNotesInput) {
+      bookingNotesInput.disabled = !settings.bookingNotesEnabled;
+      if (!settings.bookingNotesEnabled) {
+        bookingNotesInput.value = '';
+      }
     }
   };
 
   const syncSettingsForm = () => {
-    settingsDemoNameInput.value = settings.demoName;
-    settingsIntroTextInput.value = settings.introText;
-    settingsAppointmentLengthInput.value = String(settings.defaultAppointmentLength);
-    settingsNotesToggle.checked = settings.bookingNotesEnabled;
+    if (!settingsForm) {
+      return;
+    }
+
+    if (settingsDemoNameInput) {
+      settingsDemoNameInput.value = settings.demoName;
+    }
+    if (settingsIntroTextInput) {
+      settingsIntroTextInput.value = settings.introText;
+    }
+    if (settingsAppointmentLengthInput) {
+      settingsAppointmentLengthInput.value = String(settings.defaultAppointmentLength);
+    }
+    if (settingsNotesToggle) {
+      settingsNotesToggle.checked = settings.bookingNotesEnabled;
+    }
   };
 
   const setActiveScreen = (screenName) => {
@@ -199,47 +228,55 @@ export function initializeBookingApp(doc = document, options = {}) {
     }
   };
 
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
+  if (form) {
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
 
-    const formData = new FormData(form);
-    const appointment = {
-      id: Date.now(),
-      name: String(formData.get('name') || ''),
-      email: String(formData.get('email') || ''),
-      date: String(formData.get('date') || ''),
-      time: String(formData.get('time') || ''),
-      notes: settings.bookingNotesEnabled ? String(formData.get('notes') || '') : '',
-    };
+      const formData = new FormData(form);
+      const appointment = {
+        id: Date.now(),
+        name: String(formData.get('name') || ''),
+        email: String(formData.get('email') || ''),
+        date: String(formData.get('date') || ''),
+        time: String(formData.get('time') || ''),
+        notes: settings.bookingNotesEnabled ? String(formData.get('notes') || '') : '',
+      };
 
-    appointments = [...appointments, appointment];
-    persistAppointments();
-    renderAppointments();
-    successMessage.textContent = createSuccessMessage(appointment);
-    successMessage.classList.remove('hidden');
-    form.reset();
-    if (!settings.bookingNotesEnabled) {
-      bookingNotesInput.value = '';
-    }
-  });
-
-  settingsForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-
-    const formData = new FormData(settingsForm);
-    settings = normalizeSettings({
-      demoName: String(formData.get('demoName') || ''),
-      introText: String(formData.get('introText') || ''),
-      defaultAppointmentLength: Number(formData.get('defaultAppointmentLength')),
-      bookingNotesEnabled: formData.get('bookingNotesEnabled') === 'on',
+      appointments = [...appointments, appointment];
+      persistAppointments();
+      renderAppointments();
+      if (successMessage) {
+        successMessage.textContent = createSuccessMessage(appointment);
+        successMessage.classList.remove('hidden');
+      }
+      form.reset();
+      if (!settings.bookingNotesEnabled && bookingNotesInput) {
+        bookingNotesInput.value = '';
+      }
     });
+  }
 
-    persistSettings();
-    applySettingsToBookingExperience();
-    syncSettingsForm();
-    settingsSuccessMessage.textContent = 'Settings saved successfully.';
-    settingsSuccessMessage.classList.remove('hidden');
-  });
+  if (settingsForm) {
+    settingsForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      const formData = new FormData(settingsForm);
+      settings = normalizeSettings({
+        demoName: String(formData.get('demoName') || ''),
+        introText: String(formData.get('introText') || ''),
+        defaultAppointmentLength: Number(formData.get('defaultAppointmentLength')),
+        bookingNotesEnabled: formData.get('bookingNotesEnabled') === 'on',
+      });
+
+      persistSettings();
+      applySettingsToBookingExperience();
+      syncSettingsForm();
+      if (settingsSuccessMessage) {
+        settingsSuccessMessage.textContent = 'Settings saved successfully.';
+        settingsSuccessMessage.classList.remove('hidden');
+      }
+    });
+  }
 
   for (const button of navButtons) {
     button.addEventListener('click', () => {

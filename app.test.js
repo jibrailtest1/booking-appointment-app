@@ -41,6 +41,14 @@ test('normalizeSettings fills missing values with defaults', () => {
   assert.equal(settings.bookingNotesEnabled, false);
 });
 
+test('normalizeSettings enforces the same appointment length rules as the form UI', () => {
+  assert.equal(normalizeSettings({ defaultAppointmentLength: 5 }).defaultAppointmentLength, 5);
+  assert.equal(normalizeSettings({ defaultAppointmentLength: 45 }).defaultAppointmentLength, 45);
+  assert.equal(normalizeSettings({ defaultAppointmentLength: 0 }).defaultAppointmentLength, defaultSettings.defaultAppointmentLength);
+  assert.equal(normalizeSettings({ defaultAppointmentLength: 7 }).defaultAppointmentLength, defaultSettings.defaultAppointmentLength);
+  assert.equal(normalizeSettings({ defaultAppointmentLength: 12.5 }).defaultAppointmentLength, defaultSettings.defaultAppointmentLength);
+});
+
 test('loadSettings falls back when storage is empty or invalid', () => {
   const emptyStorage = { getItem: () => null };
   const invalidStorage = { getItem: () => '{bad json' };
@@ -105,6 +113,219 @@ test('createAppointmentItemElement renders appointment fields safely as text', (
 
   assert.equal(item.children[0].children[0].textContent, '<img src=x onerror=alert(1)>');
   assert.equal(item.children[1].textContent, '<script>alert(1)</script>');
+});
+
+test('initializeBookingApp safely supports pages without settings-specific DOM', () => {
+  class FakeClassList {
+    constructor(element) {
+      this.element = element;
+    }
+
+    remove(...tokens) {
+      const classes = new Set(this.element.className.split(/\s+/).filter(Boolean));
+      for (const token of tokens) classes.delete(token);
+      this.element.className = [...classes].join(' ');
+    }
+
+    toggle(token, force) {
+      const classes = new Set(this.element.className.split(/\s+/).filter(Boolean));
+      const shouldHave = force ?? !classes.has(token);
+      if (shouldHave) {
+        classes.add(token);
+      } else {
+        classes.delete(token);
+      }
+      this.element.className = [...classes].join(' ');
+    }
+  }
+
+  class FakeElement {
+    constructor(tagName, ownerDocument) {
+      this.tagName = tagName;
+      this.ownerDocument = ownerDocument;
+      this.className = '';
+      this.dataset = {};
+      this.textContent = '';
+      this.value = '';
+      this.name = '';
+      this.checked = false;
+      this.disabled = false;
+      this.children = [];
+      this.listeners = new Map();
+      this.attributes = new Map();
+      this.parentNode = null;
+      this._id = '';
+      this.classList = new FakeClassList(this);
+    }
+
+    set id(value) {
+      this._id = value;
+      if (value) {
+        this.ownerDocument.elementsById.set(value, this);
+      }
+    }
+
+    get id() {
+      return this._id;
+    }
+
+    append(...children) {
+      for (const child of children) {
+        child.parentNode = this;
+        this.children.push(child);
+      }
+    }
+
+    replaceChildren(...children) {
+      this.children = [];
+      this.append(...children);
+    }
+
+    addEventListener(type, listener) {
+      this.listeners.set(type, listener);
+    }
+
+    dispatchEvent(event) {
+      event.target = this;
+      const listener = this.listeners.get(event.type);
+      if (listener) {
+        listener(event);
+      }
+      return !event.defaultPrevented;
+    }
+
+    reset() {
+      for (const field of this.children) {
+        if ('checked' in field && field.type === 'checkbox') {
+          field.checked = false;
+        } else if ('value' in field) {
+          field.value = '';
+        }
+      }
+    }
+
+    setAttribute(name, value) {
+      this.attributes.set(name, String(value));
+    }
+
+    getAttribute(name) {
+      return this.attributes.get(name) || null;
+    }
+
+    get elements() {
+      return this.children.filter((child) => child.name);
+    }
+  }
+
+  class FakeDocument {
+    constructor() {
+      this.elementsById = new Map();
+      this.screenButtons = [];
+      this.screens = [];
+    }
+
+    createElement(tagName) {
+      return new FakeElement(tagName, this);
+    }
+
+    getElementById(id) {
+      return this.elementsById.get(id) || null;
+    }
+
+    querySelectorAll(selector) {
+      if (selector === '[data-screen-target]') {
+        return this.screenButtons;
+      }
+      if (selector === '[data-screen]') {
+        return this.screens;
+      }
+      return [];
+    }
+  }
+
+  class FakeFormData {
+    constructor(form) {
+      this.values = new Map();
+      for (const field of form.elements) {
+        if (field.type === 'checkbox') {
+          if (field.checked) {
+            this.values.set(field.name, 'on');
+          }
+          continue;
+        }
+        this.values.set(field.name, field.value);
+      }
+    }
+
+    get(name) {
+      return this.values.get(name);
+    }
+  }
+
+  const doc = new FakeDocument();
+  const bookingForm = doc.createElement('form');
+  bookingForm.id = 'booking-form';
+
+  const bookingName = doc.createElement('input');
+  bookingName.name = 'name';
+  bookingName.value = 'Alex Morgan';
+
+  const bookingEmail = doc.createElement('input');
+  bookingEmail.name = 'email';
+  bookingEmail.value = 'alex@example.com';
+
+  const bookingDate = doc.createElement('input');
+  bookingDate.name = 'date';
+  bookingDate.value = '2026-04-13';
+
+  const bookingTime = doc.createElement('input');
+  bookingTime.name = 'time';
+  bookingTime.value = '08:30';
+
+  bookingForm.append(bookingName, bookingEmail, bookingDate, bookingTime);
+
+  const bookingSuccess = doc.createElement('p');
+  bookingSuccess.id = 'success-message';
+  bookingSuccess.className = 'success-banner hidden';
+
+  const appointmentsList = doc.createElement('ul');
+  appointmentsList.id = 'appointments-list';
+
+  const originalFormData = globalThis.FormData;
+  const originalDateNow = Date.now;
+  globalThis.FormData = FakeFormData;
+  Date.now = () => 1234;
+
+  const backingStore = new Map();
+  const storage = {
+    getItem(key) {
+      return backingStore.has(key) ? backingStore.get(key) : null;
+    },
+    setItem(key, value) {
+      backingStore.set(key, value);
+    },
+  };
+
+  try {
+    const app = initializeBookingApp(doc, { storage });
+
+    assert.equal(app.getAppointments().length, 2);
+    assert.equal(appointmentsList.children.length, 2);
+
+    bookingForm.dispatchEvent({
+      type: 'submit',
+      defaultPrevented: false,
+      preventDefault() {
+        this.defaultPrevented = true;
+      },
+    });
+
+    assert.equal(app.getAppointments().length, 3);
+    assert.match(bookingSuccess.textContent, /Appointment booked for Alex Morgan/);
+  } finally {
+    globalThis.FormData = originalFormData;
+    Date.now = originalDateNow;
+  }
 });
 
 test('saving settings updates the booking experience and persists after refresh', () => {
@@ -314,6 +535,7 @@ test('saving settings updates the booking experience and persists after refresh'
     const settingsLength = doc.createElement('input');
     settingsLength.id = 'settings-appointment-length';
     settingsLength.name = 'defaultAppointmentLength';
+    settingsLength.type = 'number';
 
     const settingsNotesEnabled = doc.createElement('input');
     settingsNotesEnabled.id = 'settings-notes-enabled';
