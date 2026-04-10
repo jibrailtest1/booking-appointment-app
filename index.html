@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Appointment Booking</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero-card">
+        <div>
+          <p class="eyebrow">Simple scheduling demo</p>
+          <h1>Book an appointment in minutes</h1>
+          <p class="hero-copy">
+            A lightweight booking flow with a clean form, instant confirmation, and a clear list of upcoming appointments.
+          </p>
+        </div>
+      </section>
+
+      <div class="content-grid">
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Schedule a visit</h2>
+            <p>Fill out the form below to reserve a time.</p>
+          </div>
+
+          <form class="booking-form" id="booking-form">
+            <label>
+              Full name
+              <input required name="name" placeholder="Alex Morgan" />
+            </label>
+
+            <label>
+              Email address
+              <input required type="email" name="email" placeholder="alex@example.com" />
+            </label>
+
+            <div class="inline-fields">
+              <label>
+                Date
+                <input required type="date" name="date" />
+              </label>
+
+              <label>
+                Time
+                <input required type="time" name="time" />
+              </label>
+            </div>
+
+            <label>
+              Notes (optional)
+              <textarea name="notes" rows="4" placeholder="Anything we should know before the appointment?"></textarea>
+            </label>
+
+            <button type="submit">Book appointment</button>
+          </form>
+
+          <p class="success-banner hidden" id="success-message" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Upcoming appointments</h2>
+            <p>Demo data plus anything booked from the form.</p>
+          </div>
+
+          <ul class="appointments-list" id="appointments-list"></ul>
+        </section>
+      </div>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
