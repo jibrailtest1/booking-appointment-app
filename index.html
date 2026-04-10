@@ -10,19 +10,25 @@
     <main class="page-shell">
       <section class="hero-card">
         <div>
-          <p class="eyebrow">Simple scheduling demo</p>
+          <p class="eyebrow" id="demo-name">Simple scheduling demo</p>
           <h1>Book an appointment in minutes</h1>
-          <p class="hero-copy">
+          <p class="hero-copy" id="intro-text">
             A lightweight booking flow with a clean form, instant confirmation, and a clear list of upcoming appointments.
           </p>
         </div>
       </section>
 
+      <nav class="screen-nav" aria-label="Application sections">
+        <button type="button" class="secondary-button" data-screen-target="booking" aria-pressed="true">Booking</button>
+        <button type="button" class="secondary-button" data-screen-target="settings" aria-pressed="false">Settings</button>
+      </nav>
+
       <div class="content-grid">
-        <section class="panel">
+        <section class="panel" data-screen="booking">
           <div class="panel-header">
             <h2>Schedule a visit</h2>
             <p>Fill out the form below to reserve a time.</p>
+            <p class="supporting-copy" id="booking-length-summary">30-minute default appointment</p>
           </div>
 
           <form class="booking-form" id="booking-form">
@@ -48,15 +54,48 @@
               </label>
             </div>
 
-            <label>
+            <label id="booking-notes-field">
               Notes (optional)
-              <textarea name="notes" rows="4" placeholder="Anything we should know before the appointment?"></textarea>
+              <textarea id="booking-notes-input" name="notes" rows="4" placeholder="Anything we should know before the appointment?"></textarea>
             </label>
 
             <button type="submit">Book appointment</button>
           </form>
 
           <p class="success-banner hidden" id="success-message" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="panel hidden" data-screen="settings">
+          <div class="panel-header">
+            <h2>Settings</h2>
+            <p>Update the lightweight demo configuration for the booking experience.</p>
+          </div>
+
+          <form class="booking-form" id="settings-form">
+            <label>
+              Demo name
+              <input id="settings-demo-name" required name="demoName" placeholder="Simple scheduling demo" />
+            </label>
+
+            <label>
+              Intro text
+              <textarea id="settings-intro-text" required name="introText" rows="4" placeholder="Tell visitors what this booking flow is for."></textarea>
+            </label>
+
+            <label>
+              Default appointment length (minutes)
+              <input id="settings-appointment-length" required type="number" min="5" step="5" name="defaultAppointmentLength" />
+            </label>
+
+            <label class="toggle-field">
+              <span>Booking notes enabled</span>
+              <input id="settings-notes-enabled" type="checkbox" name="bookingNotesEnabled" />
+            </label>
+
+            <button type="submit">Save settings</button>
+          </form>
+
+          <p class="success-banner hidden" id="settings-success-message" role="status" aria-live="polite"></p>
         </section>
 
         <section class="panel">
