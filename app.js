@@ -49,6 +49,35 @@ export const createAppointmentItemMarkup = (appointment) => {
   `;
 };
 
+export const createAppointmentItemElement = (doc, appointment) => {
+  const item = doc.createElement('li');
+  item.className = 'appointment-item';
+  item.dataset.appointmentId = String(appointment.id);
+
+  const details = doc.createElement('div');
+
+  const name = doc.createElement('h3');
+  name.textContent = appointment.name;
+
+  const date = doc.createElement('p');
+  date.textContent = formatAppointmentDate(appointment.date, appointment.time);
+
+  const email = doc.createElement('p');
+  email.textContent = appointment.email;
+
+  details.append(name, date, email);
+  item.append(details);
+
+  if (appointment.notes) {
+    const notes = doc.createElement('span');
+    notes.className = 'notes-pill';
+    notes.textContent = appointment.notes;
+    item.append(notes);
+  }
+
+  return item;
+};
+
 export const createSuccessMessage = (appointment) =>
   `Appointment booked for ${appointment.name} on ${formatAppointmentDate(appointment.date, appointment.time)}.`;
 
@@ -59,9 +88,9 @@ export function initializeBookingApp(doc = document) {
   let appointments = [...seedAppointments];
 
   const renderAppointments = () => {
-    appointmentsList.innerHTML = sortAppointments(appointments)
-      .map((appointment) => createAppointmentItemMarkup(appointment))
-      .join('');
+    appointmentsList.replaceChildren(
+      ...sortAppointments(appointments).map((appointment) => createAppointmentItemElement(doc, appointment)),
+    );
   };
 
   form.addEventListener('submit', (event) => {
